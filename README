@@ -9,6 +9,8 @@ $ Make
 
 Running
 -------
+All StreamMR apps are in the folder build
+
 $ ./KMeans <-d dimensions> <-p pointsNumbers> <-c numClusters> <-g workGroupSize>
 
 $ ./WordCount <-f input_file> <-c chunckSize > <-g workGroupSize>
