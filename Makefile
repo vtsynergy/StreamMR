@@ -14,6 +14,7 @@ OBJFILES := timeRec.o StreamMR.o rdtsc.o scan.o
 EXECUTABLE := ${APP}
 
 all: $(EXECUTABLE)
+	mkdir -p build
 	cp scan.cl build
 	cp $(EXECUTABLE) build 
 
