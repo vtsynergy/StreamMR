@@ -1,0 +1,6 @@
+K-Means clustering in MapReduce
+Usage: 
+mrkm <-d dimensions> <-p pointsNumbers> <-c numClusters> <-g workGroupSize>
+Example:
+AMD_GPU: mrkm -d 2 -p 1024 -c 64 -g 64
+Nvidia_GPU: mrkm -d 2 -p 1024 -c 64 -g 32

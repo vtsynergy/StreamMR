@@ -1,0 +1,5 @@
+Matrix Multiplication in MapReduce
+Usage:
+mrmm <-c colsNumber> <-r rowsNumber> <-g userSize>
+Example:
+mrmm -c 1024 -r 1024 -g 64

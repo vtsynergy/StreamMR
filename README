@@ -1,0 +1,18 @@
+StreamMR
+==========
+
+Building
+--------
+Change AMDROOTPATH in Makefile according to your environment
+
+$ Make
+
+Running
+-------
+$ ./KMeans <-d dimensions> <-p pointsNumbers> <-c numClusters> <-g workGroupSize>
+
+$ ./WordCount <-f input_file> <-c chunckSize > <-g workGroupSize>
+
+$ ./StringMatch <-f filename> <-s sizePerMap> <-w keyWord> <-g userSize>
+
+$ ./MatrixMul <-c colsNumber> <-r rowsNumber> <-g userSize>

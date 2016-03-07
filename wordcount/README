@@ -1,0 +1,5 @@
+WordCount in MapReduce
+Usage: 
+mrwc <-f input file> <-c numOfChuncks> <-g workGroupSize>
+Example:
+mrwc -f ../test/mapreduce/wordcount/in -c 64 -g 64

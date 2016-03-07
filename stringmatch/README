@@ -1,0 +1,5 @@
+String match in MapReduce
+Usage:
+mrsm <-f filename> <-s sizePerMap> <-w keyWord> <-g userSize>
+Example:
+mrsm -f ../test/mapreduce/stringmatch/in16 -s 128 -w "Dreams" -g 32
