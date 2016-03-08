@@ -24,8 +24,7 @@ To run:
 Building
 --------
 
-Change the variable OCLSDKROOT in Makefile. This points to the location where you have installed the SDK development
-package.
+Change the variable OCLSDKROOT in Makefile. This points to the location where you have installed the SDK development package.
 
 To build all of the included applications:
 
