@@ -98,6 +98,7 @@ with respect thereto. This license does not affect any ownership, rights, title,
 #ifndef MAPREDUCE_H_
 #define MAPREDUCE_H_
 
+#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
 #include <CL/cl.h>
 #include <stdio.h>
 #include <stdlib.h>
