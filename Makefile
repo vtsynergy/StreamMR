@@ -2,7 +2,7 @@ OCLSDKROOT := /opt/OCLSDK/
 
 CFLAGS := -c -O2 -g -I. 
 LDFLAGS := -L${OCLSDKROOT}/lib/x86_64/
-LIBS := -lOpenCL
+LIBS := -lOpenCL -lm
 INCLUDE_DIR := -I${OCLSDKROOT}/include 
 APP=KMeans WordCount MatrixMul StringMatch
 SRCFILES = kmeans/KMeans.cpp wordcount/WordCount.cpp matrixmul/Matrixmul.cpp stringmatch/StringMatch.cpp timeRec.cpp StreamMR.cpp rdtsc.c scan.cpp
