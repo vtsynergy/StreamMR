@@ -285,6 +285,7 @@ int Matrixmul::initialize(int argc, char * argv[])
     }
 
     printf("rowsNumber: %d colsNumber: %d\n", rowsNumber, colsNumber);
+    return 0;
 }
 
 int Matrixmul::setup()
