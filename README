@@ -15,7 +15,17 @@ This prototype distribution contains four MapReduce applications:
 4. WordCount
 This prototype distribution has only been tested on OpenCL-supported AMD GPUs 
 but should be able to run on other GPU platforms that have OpenCL support, 
-e.g, NVIDIA GPUs.
+e.g, NVIDIA GPUs. For additional information about the research that went 
+into StreamMR, please refer to or reference the following publication:
+
+StreamMR: An Optimized MapReduce Framework for AMD GPUs. 
+Marwa Elteir, Heshan Lin, Wu-chun Feng, Tom Scogland.
+In Proceedings of the 17th IEEE International Conference on Parallel and 
+Distributed Systems, Tainan, Taiwan, December 2011. 
+
+An electronic copy of the above paper may be obtained at the following site:
+http://synergy.cs.vt.edu/publications.php
+
 
 Requirements
 ------------
