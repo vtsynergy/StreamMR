@@ -1,20 +1,39 @@
 StreamMR
 ==========
 
+StreamMR is an optimized MapReduce framework for OpenCL-supported GPUs. With efficient atomic-free algorithms for output handling and intermediate result shuffling, StreamMR is superior to atomic-based MapReduce designs and can outperform existing atomic-free MapReduce implementations by nearly five-fold on an AMD Radeon HD 5870.
+
+This distribution contains four MapReduce applications: K-Means, Matrix Multiplication, String Match and WordCount. The current distribution runs on AMD GPUs. But, it is easy to port the code to support NVIDIA GPUs.
+
+
+Requirements
+--------
+
+Packages and libraries needed to build and run the applications.
+
+To build:
+
+	opencl >= 1.1
+	gcc
+	maker
+
+To run:
+
+	opencl libs
+
 Building
 --------
-Change AMDROOTPATH in Makefile according to your environment
+
+Change the variable OCLSDKROOT in Makefile. This points to the location where you have installed the SDK development
+package.
+
+To build all of the included applications:
 
 $ Make
 
+All StreamMR applications are created in the build directory.
+
 Running
 -------
-All StreamMR apps are in the folder build
 
-$ ./KMeans <-d dimensions> <-p pointsNumbers> <-c numClusters> <-g workGroupSize>
-
-$ ./WordCount <-f input_file> <-c chunckSize > <-g workGroupSize>
-
-$ ./StringMatch <-f filename> <-s sizePerMap> <-w keyWord> <-g userSize>
-
-$ ./MatrixMul <-c colsNumber> <-r rowsNumber> <-g userSize>
+See the application-specific README file in each application's directory.
