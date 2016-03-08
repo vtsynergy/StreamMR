@@ -1,5 +1,6 @@
 
 //#include <libc.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -20,12 +21,24 @@ LoadProgramSourceFromFile(const char *filename)
     char        *source;
 
     fh = fopen(filename, "r");
+    if (!fh)
+    {
+        fprintf(stderr,"ERROR: %s:%d Failed to open kernel file %s\n", __FILE__, __LINE__, filename);
+        fprintf(stderr,"\tError reason: %s\n", strerror(errno));
+        exit(-1);
+    }
+
     if (fh == 0)
         return 0;
 
     stat(filename, &statbuf);
     source = (char *) malloc(statbuf.st_size + 1);
-    fread(source, statbuf.st_size, 1, fh);
+    if (!fread(source, statbuf.st_size, 1, fh))
+    {
+        fprintf(stderr,"ERROR: %s:%d Failed to read from kernel file %s\n", __FILE__, __LINE__, filename);
+        fprintf(stderr,"\tError reason: %s\n", strerror(errno));
+        exit(-1);
+    }
     source[statbuf.st_size] = '\0';
 
     return source;
@@ -49,7 +62,7 @@ int Scan(cl_mem *input_buffer, cl_mem *output_buffer, cl_uint count)
     const size_t local_wsize  = min(GROUP_SIZE, count);
     const size_t global_wsize = count; // i.e. 64 work groups
     const size_t num_work_groups = global_wsize / local_wsize;
-    printf("scan: %d %d %d %d\n", count, local_wsize, global_wsize, num_work_groups);
+    printf("scan: %u %zu %zu %zu\n", count, local_wsize, global_wsize, num_work_groups);
     cl_platform_id platforms;
     err = clGetPlatformIDs(1, &platforms, NULL);
     if (err != CL_SUCCESS)

@@ -99,6 +99,7 @@ with respect thereto. This license does not affect any ownership, rights, title,
 #include <malloc.h>
 #include <ctime>
 #include <sys/time.h>
+#include <errno.h>
 #include "timeRec.h"
 #include "rdtsc.h"
 #include "scan.h"
@@ -230,10 +231,21 @@ int MapReduce::setupCL()
 
     kernelFile = fopen(kernelPath.c_str(), "r");
     fseek(kernelFile, 0, SEEK_END);
+    if (!kernelFile)
+    {
+        std::cerr << "ERROR: " << __FILE__ << ":" << __LINE__ << " Failed to open kernel file " << kernelPath << std::endl;
+        std::cerr << "\tError reason: " << strerror(errno) << std::endl;
+        exit(-1);
+    }
     kernelLength = (size_t) ftell(kernelFile);
     kernelSource = (char *) malloc(sizeof(char)*kernelLength);
     rewind(kernelFile);
-    fread((void *) kernelSource, kernelLength, 1, kernelFile);
+    if (!fread((void *) kernelSource, kernelLength, 1, kernelFile))
+    {
+        std::cerr << "ERROR: " << __FILE__ << ":" << __LINE__ << " Failed to read from kernel file: " << kernelPath << std::endl;
+        std::cerr << "\tError reason: " << strerror(errno) << std::endl;
+        exit(-1);
+    }
     fclose(kernelFile);
 
 
@@ -730,12 +742,12 @@ int MapReduce::startMapType2()
     size_t localThreads[1] = {groupSize};
     numGroups = h_actualNumThreads/groupSize;
     int wavefrontSize= isAMD? 64 : 32;
-    printf("workgroup Size: %i wavefrontSize: %d\n", groupSize, wavefrontSize);  
+    printf("workgroup Size: %zu wavefrontSize: %d\n", groupSize, wavefrontSize);
     numWavefrontsPerGroup = groupSize/wavefrontSize;
     int localValuesSize = jobSpec->estimatedValSize *  groupSize;
     int localKeysSize =  jobSpec->estimatedKeySize * groupSize;
 
-    printf("localKeysSize: %i  localValuesSize%i\n",localKeysSize,localValuesSize);
+    printf("localKeysSize: %d  localValuesSize%d\n",localKeysSize,localValuesSize);
     numHashTables=numWavefrontsPerGroup*numGroups;
 
 
@@ -1741,9 +1753,9 @@ int MapReduce::startMapType2()
            }
            */
         allOutputVals += (h_outputValSizes[i] - h_outputValSizes[numGroups+i]);
-        printf ("Output Keys Overflow workgroup %i %i %i!!!!\n",i, h_outputKeySizes[i],h_outputKeySizes[numGroups+i]);
+        /*printf ("Output Keys Overflow workgroup %i %i %i!!!!\n",i, h_outputKeySizes[i],h_outputKeySizes[numGroups+i]);
         printf ("Output Vals Overflow workgroup %i %i %i!!!!\n",i, h_outputValSizes[i],h_outputValSizes[numGroups+i]);
-        printf( "hash bucket sizes of workgroup %i: %i %i!!!!\n",i, h_gHashBucketSize[i], h_gHashBucketSize[numGroups+i]);
+        printf( "hash bucket sizes of workgroup %i: %i %i!!!!\n",i, h_gHashBucketSize[i], h_gHashBucketSize[numGroups+i]);*/
     }
 
     printFinalOutput(0,0,0,0,0,NULL);
@@ -3513,7 +3525,7 @@ int MapReduce::startMapReduce()
             jobSpec->inputDataSetSize,
             jobSpec->inputDataSet,
             &status);
-    if(status!= NULL)
+    if(status != CL_SUCCESS)
     {
         printf("clCreateBuffer failed. (d_filebuf)\n");
         exit(-1);
@@ -3540,7 +3552,7 @@ int MapReduce::startMapReduce()
                 NULL,
                 &status);
     }
-    if(status!= NULL)
+    if(status != CL_SUCCESS)
     {
         printf("clCreateBuffer failed. (d_constantData)\n");
         exit(-1);
@@ -3600,7 +3612,7 @@ int MapReduce::startMapReduce()
 int MapReduce::printFinalOutput(uint stage, uint keysSizes, uint valsSizes, uint hashTablesSizes, uint hashBucketSizes, cl_int * h_hashBucketOffsets)
 {
     int status;
-    cl_event events[1];
+    cl_event events[3];
     cl_int4 *htables;
     cl_int4* hbuckets= NULL;
     cl_int* hIsBaseForReduce= NULL;
@@ -4004,6 +4016,7 @@ int MapReduce::printFinalOutput(uint stage, uint keysSizes, uint valsSizes, uint
     if (htables) free(htables);
     if (hbuckets) free(hbuckets);
     if (hIsBaseForReduce) free(hIsBaseForReduce);
+    return 0;
 }
 
 /******************************************
@@ -4026,17 +4039,17 @@ void MapReduce::AddMapInputRecord(
 
     if (jobSpec->inputRecordCount > 0)
     {
-        if (dataChunkSize*curChunkNum[1] < (curOffset[1] + keySize))
-            jobSpec->inputKeys = (cl_char*)realloc(jobSpec->inputKeys, (++curChunkNum[1])*dataChunkSize);
-        memcpy(jobSpec->inputKeys+curOffset[1], key, keySize);
+        if (dataChunkSize*curChunkNum[0] < (curOffset[0] + keySize))
+            jobSpec->inputKeys = (cl_char*)realloc(jobSpec->inputKeys, (++curChunkNum[0])*dataChunkSize);
+        memcpy(jobSpec->inputKeys+curOffset[0], key, keySize);
 
-        if (dataChunkSize*curChunkNum[2] < (curOffset[2] + valSize))
-            jobSpec->inputVals = (cl_char*)realloc(jobSpec->inputVals, (++curChunkNum[2])*dataChunkSize);
-        memcpy(jobSpec->inputVals+curOffset[2], val, valSize);
+        if (dataChunkSize*curChunkNum[1] < (curOffset[1] + valSize))
+            jobSpec->inputVals = (cl_char*)realloc(jobSpec->inputVals, (++curChunkNum[1])*dataChunkSize);
+        memcpy(jobSpec->inputVals+curOffset[1], val, valSize);
 
-        if (dataChunkSize*curChunkNum[3] < (jobSpec->inputRecordCount+1)*sizeof(cl_int4))
+        if (dataChunkSize*curChunkNum[2] < (jobSpec->inputRecordCount+1)*sizeof(cl_int4))
             jobSpec->inputOffsetSizes = (cl_uint4*)realloc(jobSpec->inputOffsetSizes,
-                    (++curChunkNum[3])*dataChunkSize);
+                    (++curChunkNum[2])*dataChunkSize);
 
         //printf("Done REAllocation \n");
         jobSpec->inputKeysBufSize+=keySize;
@@ -4064,14 +4077,14 @@ void MapReduce::AddMapInputRecord(
         jobSpec->inputKeysBufSize=keySize;
         jobSpec->inputValsBufSize=valSize;
 
+        curChunkNum[0]++;
         curChunkNum[1]++;
         curChunkNum[2]++;
-        curChunkNum[3]++;
     }
 
-    jobSpec->inputOffsetSizes[index]= (cl_uint4){curOffset[1], keySize, curOffset[2], valSize};
-    curOffset[1]+= keySize;
-    curOffset[2]+= valSize;
+    jobSpec->inputOffsetSizes[index]= (cl_uint4){curOffset[0], keySize, curOffset[1], valSize};
+    curOffset[0]+= keySize;
+    curOffset[1]+= valSize;
     jobSpec->inputRecordCount++;
 }
 
@@ -4154,7 +4167,7 @@ int MapReduce::startMapType1()
     int h_actualNumThreads=CEIL(h_inputRecordCount, h_recordsPerTask);
     size_t globalThreads[1]= {h_actualNumThreads};
     groupSize=jobSpec->userSize;
-    printf("workgroup Size: %i \n",groupSize);  
+    printf("workgroup Size: %zu \n",groupSize);
     size_t localThreads[1] = {groupSize};
     int numGroups=h_actualNumThreads/groupSize;
 
@@ -4825,7 +4838,7 @@ int MapReduce::startMapType1()
     timerEnd();
     printf("Mapper pre overflow: %.3f ms\n",elapsedTime());
 
-    printf( "MapOutput Records: %i \n",jobSpec->interRecordCount);
+    printf( "MapOutput Records: %u \n",static_cast<unsigned int>(jobSpec->interRecordCount));
     cl_int * keys=(cl_int *)jobSpec->interKeys;
     cl_int * values=(cl_int *)jobSpec->interVals;
     cl_uint4 * offsets=(cl_uint4 *)jobSpec->interOffsetSizes;
@@ -5155,6 +5168,7 @@ void MapReduce::error(const char* info)
 
 int MapReduce::initialize()
 {
+    return 0;
 }
     std::string
 MapReduce::getPath()
