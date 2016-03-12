@@ -114,7 +114,7 @@ int MapReduce::setupCL()
     cl_uint deviceListSize = 1;
 
     /* Now allocate memory for device list based on the size we got earlier */
-    devices = (cl_device_id*)malloc(deviceListSize);
+    devices = (cl_device_id*)malloc(deviceListSize*sizeof(cl_device_id));
     if(devices == NULL)
     {
         error("Failed to allocate memory (devices).");
