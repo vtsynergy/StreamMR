@@ -99,6 +99,7 @@ with respect thereto. This license does not affect any ownership, rights, title,
 #include <malloc.h>
 #include <ctime>
 #include <sys/time.h>
+#include <errno.h>
 #include "timeRec.h"
 #include "rdtsc.h"
 #include "scan.h"
@@ -113,7 +114,7 @@ int MapReduce::setupCL()
     cl_uint deviceListSize = 1;
 
     /* Now allocate memory for device list based on the size we got earlier */
-    devices = (cl_device_id*)malloc(deviceListSize);
+    devices = (cl_device_id*)malloc(deviceListSize*sizeof(cl_device_id));
     if(devices == NULL)
     {
         error("Failed to allocate memory (devices).");
@@ -230,10 +231,21 @@ int MapReduce::setupCL()
 
     kernelFile = fopen(kernelPath.c_str(), "r");
     fseek(kernelFile, 0, SEEK_END);
+    if (!kernelFile)
+    {
+        std::cerr << "ERROR: " << __FILE__ << ":" << __LINE__ << " Failed to open kernel file " << kernelPath << std::endl;
+        std::cerr << "\tError reason: " << strerror(errno) << std::endl;
+        exit(-1);
+    }
     kernelLength = (size_t) ftell(kernelFile);
     kernelSource = (char *) malloc(sizeof(char)*kernelLength);
     rewind(kernelFile);
-    fread((void *) kernelSource, kernelLength, 1, kernelFile);
+    if (!fread((void *) kernelSource, kernelLength, 1, kernelFile))
+    {
+        std::cerr << "ERROR: " << __FILE__ << ":" << __LINE__ << " Failed to read from kernel file: " << kernelPath << std::endl;
+        std::cerr << "\tError reason: " << strerror(errno) << std::endl;
+        exit(-1);
+    }
     fclose(kernelFile);
 
 
@@ -687,7 +699,7 @@ int MapReduce::startMapType2()
     cl_mem  d_inputOffsetSizes = NULL;
 
     d_inputKeys = clCreateBuffer(context,
-            CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
             h_inputKeysBufSize,
             h_inputKeys,
             &status);
@@ -698,7 +710,7 @@ int MapReduce::startMapType2()
         return SDK_FAILURE;
 
     d_inputVals = clCreateBuffer(context,
-            CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
             h_inputValsBufSize,
             h_inputVals,
             &status);
@@ -709,7 +721,7 @@ int MapReduce::startMapType2()
         return SDK_FAILURE;
 
     d_inputOffsetSizes = clCreateBuffer(context,
-            CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
             sizeof(cl_int4)*h_inputRecordCount,
             h_inputOffsetSizes,
             &status);
@@ -730,12 +742,12 @@ int MapReduce::startMapType2()
     size_t localThreads[1] = {groupSize};
     numGroups = h_actualNumThreads/groupSize;
     int wavefrontSize= isAMD? 64 : 32;
-    printf("workgroup Size: %i wavefrontSize: %d\n", groupSize, wavefrontSize);  
+    printf("workgroup Size: %zu wavefrontSize: %d\n", groupSize, wavefrontSize);
     numWavefrontsPerGroup = groupSize/wavefrontSize;
     int localValuesSize = jobSpec->estimatedValSize *  groupSize;
     int localKeysSize =  jobSpec->estimatedKeySize * groupSize;
 
-    printf("localKeysSize: %i  localValuesSize%i\n",localKeysSize,localValuesSize);
+    printf("localKeysSize: %d  localValuesSize%d\n",localKeysSize,localValuesSize);
     numHashTables=numWavefrontsPerGroup*numGroups;
 
 
@@ -822,7 +834,7 @@ int MapReduce::startMapType2()
     }
 
     d_hashTable = clCreateBuffer(context,
-            CL_MEM_READ_WRITE |CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
             sizeof(cl_uint4) * totalHashSize ,
             h_initial,
             &status);
@@ -1356,7 +1368,7 @@ int MapReduce::startMapType2()
         overflowWGId[i]=i;
 
     cl_mem  d_overflowWGId = clCreateBuffer(context,
-            CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
             numGroups*sizeof(cl_uint),
             overflowWGId,
             &status);
@@ -1504,7 +1516,7 @@ int MapReduce::startMapType2()
     clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&startTime,NULL);
     clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&endTime,NULL);
     diff=endTime-startTime;
-    printf("Mapper Kernel spent ** : %lu ns",diff);
+    printf("Mapper Kernel spent ** : %.3f ms\n",static_cast<double>(diff)/1000000.);
 
     timerStart();
 
@@ -1741,9 +1753,9 @@ int MapReduce::startMapType2()
            }
            */
         allOutputVals += (h_outputValSizes[i] - h_outputValSizes[numGroups+i]);
-        printf ("Output Keys Overflow workgroup %i %i %i!!!!\n",i, h_outputKeySizes[i],h_outputKeySizes[numGroups+i]);
+        /*printf ("Output Keys Overflow workgroup %i %i %i!!!!\n",i, h_outputKeySizes[i],h_outputKeySizes[numGroups+i]);
         printf ("Output Vals Overflow workgroup %i %i %i!!!!\n",i, h_outputValSizes[i],h_outputValSizes[numGroups+i]);
-        printf( "hash bucket sizes of workgroup %i: %i %i!!!!\n",i, h_gHashBucketSize[i], h_gHashBucketSize[numGroups+i]);
+        printf( "hash bucket sizes of workgroup %i: %i %i!!!!\n",i, h_gHashBucketSize[i], h_gHashBucketSize[numGroups+i]);*/
     }
 
     printFinalOutput(0,0,0,0,0,NULL);
@@ -1768,7 +1780,7 @@ int MapReduce::startMapType2()
                 printf("overflowWGId[%i]= %i\n",i,overflowWGId[i]);
 
             cl_mem  d_overflowWGId = clCreateBuffer(context,
-                    CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                    CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                     overflowedWorkGroups*sizeof(cl_uint),
                     overflowWGId,
                     &status);
@@ -1808,7 +1820,7 @@ int MapReduce::startMapType2()
             }
 
             d_hashTableExtra = clCreateBuffer(context,
-                    CL_MEM_READ_WRITE |CL_MEM_USE_HOST_PTR,
+                    CL_MEM_READ_WRITE |CL_MEM_COPY_HOST_PTR,
                     sizeof(cl_uint4) * totalHashSizeExtra ,
                     h_initial,
                     &status);
@@ -1830,7 +1842,7 @@ int MapReduce::startMapType2()
 
 
             d_outputKeysOffsetsExtra = clCreateBuffer(context,
-                    CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                    CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                     sizeof(cl_int)* overflowedWorkGroups,
                     h_interAllKeys,
                     &status);
@@ -1840,7 +1852,7 @@ int MapReduce::startMapType2()
                 return SDK_FAILURE;
 
             d_outputValsOffsetsExtra = clCreateBuffer(context,
-                    CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                    CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                     sizeof(cl_int)*overflowedWorkGroups,
                     h_interAllVals,
                     &status);
@@ -1850,7 +1862,7 @@ int MapReduce::startMapType2()
                 return SDK_FAILURE;
 
             d_hashBucketOffsetsExtra = clCreateBuffer(context,
-                    CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                    CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                     sizeof(cl_int)* overflowedWorkGroups,
                     h_interAllOffsetSizes,
                     &status);
@@ -2351,7 +2363,7 @@ int MapReduce::startMapType2()
             clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&startTime,NULL);
             clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&endTime,NULL);
             diff=endTime-startTime;
-            printf("Second mapper kernel spent ** : %lu ns",diff);
+            printf("Second mapper kernel spent ** : %.3f ms\n",static_cast<double>(diff)/1000000.);
 
             /*
                h_metae= (cl_int* ) malloc(sizeof(cl_int) * h_inputRecordCount);
@@ -2861,7 +2873,7 @@ int MapReduce::startReduce()
         clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&endTime,NULL);
         diff=endTime-startTime;
         totalTime+=diff;
-        printf("Reducer Kernel spent **: %lu ns",diff);
+        printf("Reducer Kernel spent **: %.3f ms\n", static_cast<double>(diff)/1000000.);
         //if (overflowOccurs == 1) printFinalOutput( 4, KeysDiff, ValsDiff, sizeof(cl_uint4) *totalHashSizeExtra, sizeof(cl_uint4) *CountsDiff, h_interAllOffsetSizes );
         printFinalOutput(2,0,0,0,0,NULL);
 
@@ -3112,7 +3124,7 @@ int MapReduce::startReduce()
 
         cl_int offset=0;
         d_keyOffsetPerWG = clCreateBuffer(context,
-                CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                 sizeof(cl_float) * numWorkGroups,
                 &offset,
                 &status);
@@ -3122,7 +3134,7 @@ int MapReduce::startReduce()
             return SDK_FAILURE;
 
         d_valOffsetPerWG = clCreateBuffer(context,
-                CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                 sizeof(cl_float) * numWorkGroups,
                 &offset,
                 &status);
@@ -3132,7 +3144,7 @@ int MapReduce::startReduce()
             return SDK_FAILURE;
 
         d_numPairsOffsetPerWG = clCreateBuffer(context,
-                CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                 sizeof(cl_float) * numWorkGroups,
                 &offset,
                 &status);
@@ -3147,7 +3159,7 @@ int MapReduce::startReduce()
         contiguousValsSize = (int) ValsSize;
         contiguousOffsets= (int) Offsets;
     }
-    printf("h_allKeySize %i , h_allKeySize  %i, h_allCounts %i\n ",contiguousKeysSize, contiguousValsSize, contiguousOffsets);
+    printf("h_allKeySize %i , h_allKeySize  %i, h_allCounts %i\n",contiguousKeysSize, contiguousValsSize, contiguousOffsets);
 
     timerStart();
     //Create buffers storing final outputs
@@ -3479,7 +3491,7 @@ int MapReduce::startReduce()
     clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&startTime,NULL);
     clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&endTime,NULL);
     diff=endTime-startTime;
-    printf("copyer Kernel spent **: %lu ns",diff);
+    printf("copyer Kernel spent **: %.3f ms\n", static_cast<double>(diff)/1000000.);
 
     printFinalOutput(5,0,0,0,0,NULL);
     //if (overflowOccurs == 1) printFinalOutput( 4, KeysDiff, ValsDiff, sizeof(cl_uint4) *totalHashSizeExtra, sizeof(cl_uint4) *CountsDiff, h_interAllOffsetSizes );
@@ -3509,11 +3521,11 @@ int MapReduce::startMapReduce()
     //Create input and constant datasets Buffers
     cl_int status;
     d_inputDataSet = clCreateBuffer(context,
-            CL_MEM_READ_ONLY| CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
             jobSpec->inputDataSetSize,
             jobSpec->inputDataSet,
             &status);
-    if(status!= NULL)
+    if(status != CL_SUCCESS)
     {
         printf("clCreateBuffer failed. (d_filebuf)\n");
         exit(-1);
@@ -3527,7 +3539,7 @@ int MapReduce::startMapReduce()
     if (jobSpec->constantDataSize > 0)
     {
         d_constantData = clCreateBuffer(context,
-                CL_MEM_READ_ONLY| CL_MEM_USE_HOST_PTR,
+                CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                 jobSpec->constantDataSize,
                 jobSpec->constantData,
                 &status);
@@ -3540,7 +3552,7 @@ int MapReduce::startMapReduce()
                 NULL,
                 &status);
     }
-    if(status!= NULL)
+    if(status != CL_SUCCESS)
     {
         printf("clCreateBuffer failed. (d_constantData)\n");
         exit(-1);
@@ -3600,7 +3612,7 @@ int MapReduce::startMapReduce()
 int MapReduce::printFinalOutput(uint stage, uint keysSizes, uint valsSizes, uint hashTablesSizes, uint hashBucketSizes, cl_int * h_hashBucketOffsets)
 {
     int status;
-    cl_event events[1];
+    cl_event events[3];
     cl_int4 *htables;
     cl_int4* hbuckets= NULL;
     cl_int* hIsBaseForReduce= NULL;
@@ -3920,7 +3932,7 @@ int MapReduce::printFinalOutput(uint stage, uint keysSizes, uint valsSizes, uint
     else
         it = numWavefrontsPerGroup * numGroups;
 
-    printf("Number of iterations : %i",it);
+    printf("Number of iterations : %i\n",it);
     timerStart();
     int count =0 ;
     cl_int * ok = (cl_int*)jobSpec->outputKeys;
@@ -4004,6 +4016,7 @@ int MapReduce::printFinalOutput(uint stage, uint keysSizes, uint valsSizes, uint
     if (htables) free(htables);
     if (hbuckets) free(hbuckets);
     if (hIsBaseForReduce) free(hIsBaseForReduce);
+    return 0;
 }
 
 /******************************************
@@ -4026,17 +4039,17 @@ void MapReduce::AddMapInputRecord(
 
     if (jobSpec->inputRecordCount > 0)
     {
-        if (dataChunkSize*curChunkNum[1] < (curOffset[1] + keySize))
-            jobSpec->inputKeys = (cl_char*)realloc(jobSpec->inputKeys, (++curChunkNum[1])*dataChunkSize);
-        memcpy(jobSpec->inputKeys+curOffset[1], key, keySize);
+        if (dataChunkSize*curChunkNum[0] < (curOffset[0] + keySize))
+            jobSpec->inputKeys = (cl_char*)realloc(jobSpec->inputKeys, (++curChunkNum[0])*dataChunkSize);
+        memcpy(jobSpec->inputKeys+curOffset[0], key, keySize);
 
-        if (dataChunkSize*curChunkNum[2] < (curOffset[2] + valSize))
-            jobSpec->inputVals = (cl_char*)realloc(jobSpec->inputVals, (++curChunkNum[2])*dataChunkSize);
-        memcpy(jobSpec->inputVals+curOffset[2], val, valSize);
+        if (dataChunkSize*curChunkNum[1] < (curOffset[1] + valSize))
+            jobSpec->inputVals = (cl_char*)realloc(jobSpec->inputVals, (++curChunkNum[1])*dataChunkSize);
+        memcpy(jobSpec->inputVals+curOffset[1], val, valSize);
 
-        if (dataChunkSize*curChunkNum[3] < (jobSpec->inputRecordCount+1)*sizeof(cl_int4))
+        if (dataChunkSize*curChunkNum[2] < (jobSpec->inputRecordCount+1)*sizeof(cl_int4))
             jobSpec->inputOffsetSizes = (cl_uint4*)realloc(jobSpec->inputOffsetSizes,
-                    (++curChunkNum[3])*dataChunkSize);
+                    (++curChunkNum[2])*dataChunkSize);
 
         //printf("Done REAllocation \n");
         jobSpec->inputKeysBufSize+=keySize;
@@ -4064,14 +4077,14 @@ void MapReduce::AddMapInputRecord(
         jobSpec->inputKeysBufSize=keySize;
         jobSpec->inputValsBufSize=valSize;
 
+        curChunkNum[0]++;
         curChunkNum[1]++;
         curChunkNum[2]++;
-        curChunkNum[3]++;
     }
 
-    jobSpec->inputOffsetSizes[index]= (cl_uint4){curOffset[1], keySize, curOffset[2], valSize};
-    curOffset[1]+= keySize;
-    curOffset[2]+= valSize;
+    jobSpec->inputOffsetSizes[index]= (cl_uint4){curOffset[0], keySize, curOffset[1], valSize};
+    curOffset[0]+= keySize;
+    curOffset[1]+= valSize;
     jobSpec->inputRecordCount++;
 }
 
@@ -4114,7 +4127,7 @@ int MapReduce::startMapType1()
     cl_mem  d_inputOffsetSizes = NULL;
 
     d_inputKeys = clCreateBuffer(context,
-            CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
             h_inputKeysBufSize,
             h_inputKeys,
             &status);
@@ -4125,7 +4138,7 @@ int MapReduce::startMapType1()
         return SDK_FAILURE;
 
     d_inputVals = clCreateBuffer(context,
-            CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
             h_inputValsBufSize,
             h_inputVals,
             &status);
@@ -4136,7 +4149,7 @@ int MapReduce::startMapType1()
         return SDK_FAILURE;
 
     d_inputOffsetSizes = clCreateBuffer(context,
-            CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
             sizeof(cl_int4)*h_inputRecordCount,
             h_inputOffsetSizes,
             &status);
@@ -4154,7 +4167,7 @@ int MapReduce::startMapType1()
     int h_actualNumThreads=CEIL(h_inputRecordCount, h_recordsPerTask);
     size_t globalThreads[1]= {h_actualNumThreads};
     groupSize=jobSpec->userSize;
-    printf("workgroup Size: %i \n",groupSize);  
+    printf("workgroup Size: %zu \n",groupSize);
     size_t localThreads[1] = {groupSize};
     int numGroups=h_actualNumThreads/groupSize;
 
@@ -4225,7 +4238,7 @@ int MapReduce::startMapType1()
 
 
     cl_mem  d_interKeysOffsets = clCreateBuffer(context,
-            CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
             sizeof(cl_int)*numGroups,
             h_interAllKeys,
             &status);
@@ -4234,7 +4247,7 @@ int MapReduce::startMapType1()
                 "clCreateBuffer failed. (d_interAllKeys)"))
         return SDK_FAILURE;
     cl_mem  d_interValsOffsets = clCreateBuffer(context,
-            CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
             sizeof(cl_int)*numGroups,
             h_interAllVals,
             &status);
@@ -4243,7 +4256,7 @@ int MapReduce::startMapType1()
                 "clCreateBuffer failed. (d_interAllVals)"))
         return SDK_FAILURE;
     cl_mem  d_interOffsetSizesOffsets = clCreateBuffer(context,
-            CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+            CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
             sizeof(cl_int)*numGroups,
             h_interAllOffsetSizes,
             &status);
@@ -4671,7 +4684,7 @@ int MapReduce::startMapType1()
     clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&startTime,NULL);
     clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&endTime,NULL);
     diff=endTime-startTime;
-    printf("Mapper Kernel spent: %lu ns",diff);
+    printf("Mapper Kernel spent: %.3f ms\n", static_cast<double>(diff)/1000000.);
 
 
     //Read Output
@@ -4825,7 +4838,7 @@ int MapReduce::startMapType1()
     timerEnd();
     printf("Mapper pre overflow: %.3f ms\n",elapsedTime());
 
-    printf( "MapOutput Records: %i \n",jobSpec->interRecordCount);
+    printf( "MapOutput Records: %u \n",static_cast<unsigned int>(jobSpec->interRecordCount));
     cl_int * keys=(cl_int *)jobSpec->interKeys;
     cl_int * values=(cl_int *)jobSpec->interVals;
     cl_uint4 * offsets=(cl_uint4 *)jobSpec->interOffsetSizes;
@@ -4845,7 +4858,7 @@ int MapReduce::startMapType1()
         timerStart();
         //Overflow Handling
         cl_mem  d_overflowWGId = clCreateBuffer(context,
-                CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                 numGroups*sizeof(cl_uint),
                 overflowWGId,
                 &status);
@@ -4885,7 +4898,7 @@ int MapReduce::startMapType1()
             return SDK_FAILURE;
 
         cl_mem  d_interKeysOffsets = clCreateBuffer(context,
-                CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                 sizeof(cl_int)*numGroups,
                 h_interAllKeys,
                 &status);
@@ -4895,7 +4908,7 @@ int MapReduce::startMapType1()
             return SDK_FAILURE;
 
         cl_mem  d_interValsOffsets = clCreateBuffer(context,
-                CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                 sizeof(cl_int)*numGroups,
                 h_interAllVals,
                 &status);
@@ -4905,7 +4918,7 @@ int MapReduce::startMapType1()
             return SDK_FAILURE;
 
         cl_mem  d_interOffsetSizesOffsets = clCreateBuffer(context,
-                CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR,
+                CL_MEM_READ_WRITE|CL_MEM_COPY_HOST_PTR,
                 sizeof(cl_int)*numGroups,
                 h_interAllOffsetSizes,
                 &status);
@@ -5040,7 +5053,7 @@ int MapReduce::startMapType1()
         clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&startTime,NULL);
         clGetEventProfilingInfo (events[0],CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&endTime,NULL);
         diff=endTime-startTime;
-        printf("Second Mapper Kernel spent: %lu ns",diff);
+        printf("Second Mapper Kernel spent: %.3f ms\n",static_cast<double>(diff)/1000000.);
 
 
         timerStart();
@@ -5155,6 +5168,7 @@ void MapReduce::error(const char* info)
 
 int MapReduce::initialize()
 {
+    return 0;
 }
     std::string
 MapReduce::getPath()

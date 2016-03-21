@@ -102,6 +102,7 @@ with respect thereto. This license does not affect any ownership, rights, title,
 #include <sys/time.h>
 #include "../timeRec.h"
 #include <getopt.h>
+#include <math.h>
 #define CEIL(n,m) (n/m + (int)(n%m !=0))
 
      static struct option long_options[] = {
@@ -242,7 +243,7 @@ void Matrixmul::matrixmulCPUReference( int num, float *keys)
 
     char err = 0;
     for (int i = 0; i < rowsNumber * rowsNumber; i++)
-        //if(result[i] - keys[i] > 0.0001)
+        if(fabs(result[i] - keys[i]) > 0.0001*result[i])
         {
             printf("( %d, %d ) : CPU:%f - GPU:%f Dif:%f\n", pos[i].x, pos[i].y, result[i], keys[i], result[i] - keys[i]);
             err = 1;
@@ -284,6 +285,7 @@ int Matrixmul::initialize(int argc, char * argv[])
     }
 
     printf("rowsNumber: %d colsNumber: %d\n", rowsNumber, colsNumber);
+    return 0;
 }
 
 int Matrixmul::setup()
