@@ -3162,6 +3162,17 @@ int MapReduce::startReduce()
         contiguousOffsets= (int) Offsets;
     }
     printf("h_allKeySize %i , h_allValSize  %i, h_allCounts %i\n",contiguousKeysSize, contiguousValsSize, contiguousOffsets);
+    if (contiguousKeysSize % 64 != 0 || contiguousValsSize % 64 != 0 || contiguousOffsets % 64 != 0)
+    {
+        printf("EXCEPT that one of these does not evenly divide into workgroup size.\n");
+    }
+    if(contiguousKeysSize % 64 != 0)
+        contiguousKeysSize += (contiguousKeysSize % 64);
+    if(contiguousValsSize % 64 != 0)
+        contiguousValsSize += (contiguousValsSize % 64);
+    if(contiguousOffsets % 64 != 0)
+        contiguousOffsets += (contiguousOffsets % 64);
+    printf("EXPANDED h_allKeySize %i , h_allValSize  %i, h_allCounts %i\n",contiguousKeysSize, contiguousValsSize, contiguousOffsets);
 
     timerStart();
     //Create buffers storing final outputs
