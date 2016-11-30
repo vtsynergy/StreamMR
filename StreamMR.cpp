@@ -2996,9 +2996,9 @@ int MapReduce::startReduce()
         free(h_numPairsPerWG);
 
 
-        Scan(&d_keySizePerWG, &d_keyOffsetPerWG, numWorkGroups);
-        Scan(&d_valSizePerWG, &d_valOffsetPerWG, numWorkGroups);
-        Scan(&d_numPairsPerWG, &d_numPairsOffsetPerWG, numWorkGroups);
+        Scan(context, &d_keySizePerWG, &d_keyOffsetPerWG, numWorkGroups);
+        Scan(context, &d_valSizePerWG, &d_valOffsetPerWG, numWorkGroups);
+        Scan(context, &d_numPairsPerWG, &d_numPairsOffsetPerWG, numWorkGroups);
 
         //contiguousKeysSize = (int)clScanLarge.MarsScan(&d_keySizePerWG, &d_keyOffsetPerWG, numWorkGroups, true);
         //d_keyOffsetPerWG = clScanLarge.outputBuffer[0];
