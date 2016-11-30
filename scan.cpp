@@ -196,7 +196,7 @@ int Scan(cl_mem *input_buffer, cl_mem *output_buffer, cl_uint count)
 
     // Create the input buffer on the device
     //
-    size_t buffer_size = sizeof(float) * count;
+    //size_t buffer_size = sizeof(float) * count;
     err = clEnqueueNDRangeKernel(ComputeCommands, reduce, 1, NULL,
             &global_wsize, &local_wsize, 0, NULL, NULL);
     if(err)

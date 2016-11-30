@@ -118,7 +118,7 @@ int KMeans::setupKMeans()
 #endif
 
 
-    srand(time(0));
+    srand(0);//time(0));
     //Generate points
     for (int i = 0; i < numPoints; i++)
     {
