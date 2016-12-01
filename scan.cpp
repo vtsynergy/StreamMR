@@ -55,7 +55,7 @@ unsigned int            LevelsAllocated = 0;
 int		GROUP_SIZE      = 256;
 #define min(A,B) ((A) < (B) ? (A) : (B))
 
-int Scan(cl_mem *input_buffer, cl_mem *output_buffer, cl_uint count)
+int Scan(cl_context ctx, cl_mem *input_buffer, cl_mem *output_buffer, cl_uint count)
 {
     int i;
     int err = 0;
@@ -89,9 +89,10 @@ int Scan(cl_mem *input_buffer, cl_mem *output_buffer, cl_uint count)
         return EXIT_FAILURE;    
     }
 
-    // Create a compute ComputeContext 
+    // We should *not* create a new context here. These kernels will be using
+    // buffers that were allocated from other contexts.
     //
-    ComputeContext = clCreateContext(0, 1, &ComputeDeviceId, NULL, NULL, &err);
+    ComputeContext = ctx;
     if (!ComputeContext)
     {
         printf("Error: Failed to create a compute ComputeContext!\n");
@@ -196,7 +197,7 @@ int Scan(cl_mem *input_buffer, cl_mem *output_buffer, cl_uint count)
 
     // Create the input buffer on the device
     //
-    size_t buffer_size = sizeof(float) * count;
+    //size_t buffer_size = sizeof(float) * count;
     err = clEnqueueNDRangeKernel(ComputeCommands, reduce, 1, NULL,
             &global_wsize, &local_wsize, 0, NULL, NULL);
     if(err)

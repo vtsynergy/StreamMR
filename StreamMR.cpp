@@ -2409,6 +2409,8 @@ int MapReduce::startMapType2()
     printf("\n(9)- Free Allocated Memory:\n");
     printf("-----------------------------\n");
 
+    free(h_interAllKeys);
+
     clReleaseMemObject(d_inputKeys);
     clReleaseMemObject(d_inputVals);
     clReleaseMemObject(d_inputOffsetSizes);
@@ -2994,9 +2996,9 @@ int MapReduce::startReduce()
         free(h_numPairsPerWG);
 
 
-        Scan(&d_keySizePerWG, &d_keyOffsetPerWG, numWorkGroups);
-        Scan(&d_valSizePerWG, &d_valOffsetPerWG, numWorkGroups);
-        Scan(&d_numPairsPerWG, &d_numPairsOffsetPerWG, numWorkGroups);
+        Scan(context, &d_keySizePerWG, &d_keyOffsetPerWG, numWorkGroups);
+        Scan(context, &d_valSizePerWG, &d_valOffsetPerWG, numWorkGroups);
+        Scan(context, &d_numPairsPerWG, &d_numPairsOffsetPerWG, numWorkGroups);
 
         //contiguousKeysSize = (int)clScanLarge.MarsScan(&d_keySizePerWG, &d_keyOffsetPerWG, numWorkGroups, true);
         //d_keyOffsetPerWG = clScanLarge.outputBuffer[0];
@@ -3159,7 +3161,18 @@ int MapReduce::startReduce()
         contiguousValsSize = (int) ValsSize;
         contiguousOffsets= (int) Offsets;
     }
-    printf("h_allKeySize %i , h_allKeySize  %i, h_allCounts %i\n",contiguousKeysSize, contiguousValsSize, contiguousOffsets);
+    printf("h_allKeySize %i , h_allValSize  %i, h_allCounts %i\n",contiguousKeysSize, contiguousValsSize, contiguousOffsets);
+    if (contiguousKeysSize % 64 != 0 || contiguousValsSize % 64 != 0 || contiguousOffsets % 64 != 0)
+    {
+        printf("EXCEPT that one of these does not evenly divide into workgroup size.\n");
+    }
+    if(contiguousKeysSize % 64 != 0)
+        contiguousKeysSize += (contiguousKeysSize % 64);
+    if(contiguousValsSize % 64 != 0)
+        contiguousValsSize += (contiguousValsSize % 64);
+    if(contiguousOffsets % 64 != 0)
+        contiguousOffsets += (contiguousOffsets % 64);
+    printf("EXPANDED h_allKeySize %i , h_allValSize  %i, h_allCounts %i\n",contiguousKeysSize, contiguousValsSize, contiguousOffsets);
 
     timerStart();
     //Create buffers storing final outputs
@@ -3935,8 +3948,8 @@ int MapReduce::printFinalOutput(uint stage, uint keysSizes, uint valsSizes, uint
     printf("Number of iterations : %i\n",it);
     timerStart();
     int count =0 ;
-    cl_int * ok = (cl_int*)jobSpec->outputKeys;
-    cl_int * o = (cl_int * )jobSpec->outputVals;
+    //cl_int * ok = (cl_int*)jobSpec->outputKeys;
+    //cl_int * o = (cl_int * )jobSpec->outputVals;
     for (int i= 0 ; i< it; i++)
     {
         //printf ("hashentries of wavefront %i  !!!!\n",i);
@@ -4839,10 +4852,9 @@ int MapReduce::startMapType1()
     printf("Mapper pre overflow: %.3f ms\n",elapsedTime());
 
     printf( "MapOutput Records: %u \n",static_cast<unsigned int>(jobSpec->interRecordCount));
-    cl_int * keys=(cl_int *)jobSpec->interKeys;
+    /*cl_int * keys=(cl_int *)jobSpec->interKeys;
     cl_int * values=(cl_int *)jobSpec->interVals;
     cl_uint4 * offsets=(cl_uint4 *)jobSpec->interOffsetSizes;
-    /*
        for (int i=0;i < h_estimatCounts; i++)
        {
        printf("offset: %i size: %i \n",keys[i],values[i]);
@@ -5125,6 +5137,8 @@ int MapReduce::startMapType1()
     //----------------------------------------------
     printf("\n(8)- Free Allocated Memory:\n");
     printf("-----------------------------\n");
+
+    free(overflowWGId);
 
     clReleaseMemObject(d_inputKeys);
     clReleaseMemObject(d_inputVals);

@@ -2409,9 +2409,9 @@ __kernel void copyerHashToArray(  __constant uint* constantDataset,
     int  associatedHashBuckets = hashEntry.z;
 
     uint valSize = combineSize(constantDataset) ;
+    int4 hashBucket1;
     for (int j=0; j < associatedHashBuckets; j++)
     {
-        int4 hashBucket1;
         if (j == 0)
             hashBucket1 = hashBucket[hashEntry.x];
         else
@@ -2502,9 +2502,9 @@ __kernel void copyerHashToArrayInOverflow( __constant uint* constantDataset,
 
 
     uint valSize = combineSize(constantDataset) ;
+    int4 hashBucket1;
     for (int j=0; j < associatedHashBuckets; j++)
     {
-        int4 hashBucket1;
         int Extra = (j == 0)?  ((hashEntry.y < 0)? 1 : 0) : ( (hashBucket1.y < 0)? 1: 0 );
         hashBucket1 = (j == 0)?  (hashEntry.y < 0)? hashBucketExtra[ hashEntry.x] : hashBucket[hashEntry.x] :  (hashBucket1.y < 0)?  hashBucketExtra[ hashBucket1.w]: hashBucket[hashBucket1.w];
 

@@ -115,11 +115,16 @@ with respect thereto. This license does not affect any ownership, rights, title,
 
 int Matrixmul::setupMatrixmul()
 {
+    if (rowsNumber == 0 || colsNumber == 0)
+    {
+        fprintf(stderr, "Must give a useful row and/or column size.");
+        exit(-1);
+    }
     printf("Generating two %dx%d matrices ...\n", rowsNumber, colsNumber);
 
     h_matrix = (float*)malloc(sizeof(float)*rowsNumber*2*colsNumber);
 
-    srand(time(0));
+    srand(0);//time(0));
     for (int i = 0; i < rowsNumber*2; i++)
         for (int j = 0; j < colsNumber; j++)
             h_matrix[i*colsNumber+j] = (float)(rand() % 100);
@@ -225,8 +230,8 @@ int Matrixmul::runCLKernels()
 void Matrixmul::matrixmulCPUReference( int num, float *keys)
 {
     printf("Verifying results....\n");
-    float* result = (float*)malloc(colsNumber*rowsNumber*sizeof(float));
-    cl_int2* pos = (cl_int2*)malloc(colsNumber*rowsNumber*sizeof(cl_int2));
+    float* result = (float*)calloc(colsNumber*rowsNumber, sizeof(float));
+    cl_int2* pos = (cl_int2*)calloc(colsNumber*rowsNumber, sizeof(cl_int2));
     int count = 0;
     for (int i = 0; i < rowsNumber; i++)
     {
@@ -266,6 +271,9 @@ int Matrixmul::initialize(int argc, char * argv[])
         exit(EXIT_FAILURE);
     }
     int opt, option_index=0;
+    rowsNumber = 0;
+    colsNumber = 0;
+    userSize = 0;
     while ((opt = getopt_long(argc, argv, "::c:r:g:",
                     long_options, &option_index)) != -1 ) {
         switch(opt){

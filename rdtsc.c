@@ -279,6 +279,7 @@ GetDevice(int platform, int device) {
     }
     cl_device_id* devices = (cl_device_id *) malloc(sizeof (cl_device_id) * nDevices);
     err = clGetDeviceIDs(platforms[platform], USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, nDevices, devices, NULL);
+    CHECK_ERROR(err);
     char DeviceName[100];
     err = clGetDeviceInfo(devices[device], CL_DEVICE_NAME, sizeof (DeviceName), DeviceName, NULL);
     CHECK_ERROR(err);
